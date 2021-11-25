@@ -28,23 +28,57 @@ import Html.Events
 import Json.Decode as Decode
 import Task
 
-
 type alias Model =
     { commandInput : String
     , history : List String
+    , turn : Int
+    , position : Position
+    , currentPlayer : Player
     }
-
 
 type Msg
     = CommandEntered String
     | CommandSubmitted
     | NoOp
 
+type BuildingType = GoldMine | House
+type alias Building = 
+    { id : Int
+    , buildingType : BuildingType
+    , playerId : Int
+    }
+
+type alias Position =
+    { x : Int
+    , y : Int
+    }
+
+type alias Player = 
+    { id : Int
+    , gold : Int
+    , position : Position 
+    }
+
+type Direction
+    = Left 
+    | Right
+    | Up
+    | Down
+
+user1 : Player 
+user1 = 
+    { id = 0
+    , gold = 100
+    , position = { x = 0, y = 0}
+    }
 
 init : Model
 init =
     { commandInput = ""
     , history = []
+    , turn = 0
+    , position = { x = 0, y = 0 }
+    , currentPlayer = user1
     }
 
 
@@ -56,7 +90,8 @@ update msg model =
 
         CommandSubmitted ->
             -- TODO: Command parsing and applying goes here!!!
-            { model | commandInput = "", history = model.history ++ [ model.commandInput ] }
+            { model | commandInput = "", history = model.history ++ [ model.commandInput ] 
+            ,  currentPlayer = move model.currentPlayer Right}
 
         NoOp ->
             model
@@ -158,6 +193,22 @@ onEnter msg =
                     )
             )
         )
+
+move : Player -> Direction -> Player
+move player direction = 
+    case direction of 
+        Left -> 
+            Debug.log "Left"
+           { player | position =  { x = player.position.x - 1, y = player.position.y} }
+        Right -> 
+            Debug.log "Right"
+           { player | position = { x = player.position.x + 1, y = player.position.y } }
+        Up  -> 
+            Debug.log "Up"
+           { player | position = { x = player.position.x, y = player.position.y + 1 } }
+        Down -> 
+            Debug.log "Down"
+           { player | position = { x = player.position.x, y = player.position.y - 1 } }
 
 
 main =
