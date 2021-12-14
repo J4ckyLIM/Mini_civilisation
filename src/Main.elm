@@ -20,17 +20,15 @@ import Browser.Dom
 import Collage exposing (Collage)
 import Collage.Render
 import Collage.Text
-import Color
+import Command exposing (BuildingType(..), Direction(..))
 import Debug exposing (toString)
-import Element exposing (Element, centerX, centerY, column, el, fill, focusStyle, height, padding, paddingEach, px, rgb, rgba, row, spacing, text, width)
+import Element exposing (Element, centerX, centerY, column, el, fill, height, padding, px, row, text, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Font as Font
 import Element.Input as Input
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
-import List exposing (concat)
 import Task
 
 
@@ -51,9 +49,10 @@ type Msg
     | NoOp
 
 
-type BuildingType
-    = GoldMine
-    | House
+
+-- type BuildingType
+--     = GoldMine
+--     | House
 
 
 type alias Building =
@@ -75,11 +74,12 @@ type alias Worker =
     }
 
 
-type Direction
-    = Left
-    | Right
-    | Up
-    | Down
+
+-- type Direction
+--     = Left
+--     | Right
+--     | Up
+--     | Down
 
 
 worker : Worker
@@ -108,11 +108,7 @@ update msg model =
             { model | commandInput = command }
 
         CommandSubmitted ->
-            { model
-                | commandInput = ""
-                , history = model.history ++ [ model.commandInput ]
-                , worker = move model.worker Right
-            }
+            handleCommand model
 
         NoOp ->
             model
@@ -231,34 +227,53 @@ onEnter msg =
         )
 
 
-move : Worker -> Direction -> Worker
+
+-- move : Worker -> Direction -> Worker
+-- move character direction =
+
+
+move : Worker -> String -> Worker
 move character direction =
     case direction of
-        Left ->
-            Debug.log "Left"
+        "Left" ->
                 { character | position = { x = character.position.x - 1, y = character.position.y } }
-
-        Right ->
-            Debug.log "Right"
+        "Right" ->
                 { character | position = { x = character.position.x + 1, y = character.position.y } }
-
-        Up ->
-            Debug.log "Up"
+        "Up" ->
                 { character | position = { x = character.position.x, y = character.position.y + 1 } }
-
-        Down ->
-            Debug.log "Down"
+        "Down" ->
                 { character | position = { x = character.position.x, y = character.position.y - 1 } }
+        _ ->
+            character
 
 
-build : Worker -> BuildingType -> Building
-build character buildingType =
+
+-- build : Worker -> BuildingType -> Building
+-- build character buildingType =
+
+
+build : Model -> String -> List Building
+build model buildingType =
     case buildingType of
-        GoldMine ->
-            { id = 5, buildingType = buildingType, position = character.position }
+        "GoldMine" ->
+            model.buildings ++ [ { id = 5, buildingType = GoldMine, position = model.worker.position } ]
 
-        House ->
-            { id = 6, buildingType = buildingType, position = character.position }
+        "House" ->
+            model.buildings ++ [ { id = 6, buildingType = House, position = model.worker.position } ]
+
+        _ ->
+            model.buildings
+
+
+handleCommand : Model -> Model
+handleCommand model =
+    case String.split " " model.commandInput of
+        [ "Move", direction ] ->
+                { model | worker = move model.worker direction, commandInput = "", turn = model.turn + 1 }
+        [ "Build", buildingType ] ->
+                { model | buildings = build model buildingType, commandInput = "", turn = model.turn + 1, gold = model.gold - 30 } 
+        _ ->
+            model
 
 
 main : Program () Model Msg
