@@ -12,12 +12,16 @@ this code, reach your teacher out before doing this.
 
 -}
 
+-- import Command exposing (Command(..))
+-- import Parser exposing (Parser)
+
 import Browser
 import Browser.Dom
 import Collage exposing (Collage)
 import Collage.Render
 import Collage.Text
 import Color
+import Debug exposing (toString)
 import Element exposing (Element, centerX, centerY, column, el, fill, focusStyle, height, padding, paddingEach, px, rgb, rgba, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
@@ -26,7 +30,7 @@ import Element.Input as Input
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
-import Parser exposing (Parser)
+import List exposing (concat)
 import Task
 
 
@@ -37,6 +41,7 @@ type alias Model =
     , maxTurn : Int
     , gold : Int
     , worker : Worker
+    , buildings : List Building
     }
 
 
@@ -54,7 +59,6 @@ type BuildingType
 type alias Building =
     { id : Int
     , buildingType : BuildingType
-    , playerId : Int
     , position : Position
     }
 
@@ -81,7 +85,7 @@ type Direction
 worker : Worker
 worker =
     { id = 0
-    , position = { x = 0, y = 0 }
+    , position = { x = -5, y = -4 }
     }
 
 
@@ -93,6 +97,7 @@ init =
     , maxTurn = 100
     , gold = 100
     , worker = worker
+    , buildings = []
     }
 
 
@@ -121,10 +126,6 @@ grassTileUrl =
 houseTileUrl : String
 houseTileUrl =
     "https://cdn.imgbin.com/8/7/18/imgbin-house-pixel-art-drawing-roof-house-9d4keKLkd2tHxxtyfjBNPwyqe.jpg"
-
-
-
--- "https://lh3.googleusercontent.com/proxy/2Wr6rgQzX3MNJLZDkemAFKmOKzz2Mep8aS_AJRhYl2K32luc6WkmURB04wLNTPUKY3JGGwDeqOW5nNNp_8R-d7cEQg"
 
 
 goldMineTileUrl : String
@@ -173,29 +174,44 @@ viewMap model =
     -- Feel free to define some helper functions!
     -- Note that unfortunately, the Color.Color and Element.Color types doesn't match.
     Collage.group
-        [ -- Display a gold mine with its identifier
-          Collage.image ( cellSize, cellSize ) goldMineTileUrl
-            |> Collage.shift ( 2 * cellSize, 3 * cellSize )
-        , Collage.Text.fromString "3"
-            |> Collage.rendered
-            |> Collage.shift ( 2 * cellSize + cellSize / 3, 3 * cellSize + cellSize / 3 )
+        (List.concat
+            [ [ -- Display a worker with its identifier
+                Collage.image ( cellSize / 2, cellSize / 2 ) workerTileUrl
+                    |> Collage.shift ( toFloat model.worker.position.x * cellSize, toFloat model.worker.position.y * cellSize )
+              , Collage.Text.fromString (toString model.worker.id)
+                    |> Collage.rendered
+                    |> Collage.shift ( toFloat model.worker.position.x * cellSize + cellSize / 4, toFloat model.worker.position.y * cellSize + cellSize / 4 )
+              ]
 
-        -- Display a worker with its identifier
-        , Collage.image ( cellSize / 2, cellSize / 2 ) workerTileUrl
-            |> Collage.shift ( -2 * cellSize, -3 * cellSize )
-        , Collage.Text.fromString "1"
-            |> Collage.rendered
-            |> Collage.shift ( -2 * cellSize + cellSize / 4, -3 * cellSize + cellSize / 4 )
+            -- Display buildings
+            , viewBuildings model.buildings
+            ]
+        )
 
-        -- Display house with its identifier
-        , Collage.image ( cellSize, cellSize ) houseTileUrl
-        , Collage.Text.fromString "2"
-            |> Collage.rendered
-            |> Collage.shift ( cellSize / 3, cellSize / 3 )
 
-        -- You should have enough with the above examples, but if you need diving deeper in the `Collage` library
-        -- here is the documentation link: https://package.elm-lang.org/packages/timjs/elm-collage/latest/
-        ]
+viewBuildings : List Building -> List (Collage Msg)
+viewBuildings buildings =
+    List.concatMap (\building -> viewBuilding building building.buildingType) buildings
+
+
+viewBuilding : Building -> BuildingType -> List (Collage Msg)
+viewBuilding building buildingType =
+    case buildingType of
+        House ->
+            [ Collage.image ( cellSize, cellSize ) houseTileUrl
+                |> Collage.shift ( toFloat building.position.x * cellSize, toFloat building.position.y * cellSize )
+            , Collage.Text.fromString (toString building.id)
+                |> Collage.rendered
+                |> Collage.shift ( toFloat building.position.x * cellSize + cellSize / 3, toFloat building.position.y * cellSize + cellSize / 3 )
+            ]
+
+        GoldMine ->
+            [ Collage.image ( cellSize, cellSize ) goldMineTileUrl
+                |> Collage.shift ( toFloat building.position.x * cellSize, toFloat building.position.y * cellSize )
+            , Collage.Text.fromString (toString building.id)
+                |> Collage.rendered
+                |> Collage.shift ( toFloat building.position.x * cellSize + cellSize / 4, toFloat building.position.y * cellSize + cellSize / 4 )
+            ]
 
 
 onEnter : msg -> Element.Attribute msg
@@ -239,10 +255,10 @@ build : Worker -> BuildingType -> Building
 build character buildingType =
     case buildingType of
         GoldMine ->
-            { id = 5, buildingType = buildingType, position = character.position, playerId = character.id }
+            { id = 5, buildingType = buildingType, position = character.position }
 
         House ->
-            { id = 6, buildingType = buildingType, position = character.position, playerId = character.id }
+            { id = 6, buildingType = buildingType, position = character.position }
 
 
 main : Program () Model Msg
