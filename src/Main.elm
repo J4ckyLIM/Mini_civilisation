@@ -177,6 +177,14 @@ viewMap model =
               , Collage.Text.fromString (toString model.worker.id)
                     |> Collage.rendered
                     |> Collage.shift ( toFloat model.worker.position.x * cellSize + cellSize / 4, toFloat model.worker.position.y * cellSize + cellSize / 4 )
+                -- Display player current gold
+              , Collage.Text.fromString ("Your gold: " ++ toString model.gold)
+                    |> Collage.rendered
+                    |> Collage.shift ( 4.4 * cellSize, -3.9 * cellSize)
+                -- Display turn
+              , Collage.Text.fromString ("Turn " ++ toString model.turn)
+                    |> Collage.rendered
+                    |> Collage.shift ( 0, 3.9 * cellSize)
               ]
 
             -- Display buildings
@@ -236,13 +244,17 @@ move : Worker -> String -> Worker
 move character direction =
     case direction of
         "Left" ->
-                { character | position = { x = character.position.x - 1, y = character.position.y } }
+            { character | position = { x = character.position.x - 1, y = character.position.y } }
+
         "Right" ->
-                { character | position = { x = character.position.x + 1, y = character.position.y } }
+            { character | position = { x = character.position.x + 1, y = character.position.y } }
+
         "Up" ->
-                { character | position = { x = character.position.x, y = character.position.y + 1 } }
+            { character | position = { x = character.position.x, y = character.position.y + 1 } }
+
         "Down" ->
-                { character | position = { x = character.position.x, y = character.position.y - 1 } }
+            { character | position = { x = character.position.x, y = character.position.y - 1 } }
+
         _ ->
             character
 
@@ -256,10 +268,10 @@ build : Model -> String -> List Building
 build model buildingType =
     case buildingType of
         "GoldMine" ->
-            model.buildings ++ [ { id = 5, buildingType = GoldMine, position = model.worker.position } ]
+            model.buildings ++ [ { id = model.turn, buildingType = GoldMine, position = model.worker.position } ]
 
         "House" ->
-            model.buildings ++ [ { id = 6, buildingType = House, position = model.worker.position } ]
+            model.buildings ++ [ { id = model.turn, buildingType = House, position = model.worker.position } ]
 
         _ ->
             model.buildings
@@ -269,12 +281,55 @@ handleCommand : Model -> Model
 handleCommand model =
     case String.split " " model.commandInput of
         [ "Move", direction ] ->
-                { model | worker = move model.worker direction, commandInput = "", turn = model.turn + 1 }
+            { model | worker = move model.worker direction, commandInput = "", turn = model.turn + 1, gold = updateGold model }
+
         [ "Build", buildingType ] ->
-                { model | buildings = build model buildingType, commandInput = "", turn = model.turn + 1, gold = model.gold - 30 } 
+            { model
+                | buildings =
+                    if hasEnoughGold model then
+                        build model buildingType
+
+                    else
+                        model.buildings
+                , commandInput = ""
+                , turn = model.turn + 1
+                , gold =
+                    if hasEnoughGold model then
+                        model.gold - 30
+
+                    else
+                        updateGold model
+            }
         _ ->
             model
 
+
+hasEnoughGold : Model -> Bool
+hasEnoughGold model =
+    if model.gold >= 30 then
+        True
+
+    else
+        False
+
+
+updateGold : Model -> Int
+updateGold model =
+    if List.length model.buildings > 0 then
+        model.gold + List.sum
+            (List.map
+                (\x ->
+                    if x.buildingType == GoldMine then
+                        5
+
+                    else
+                        0
+                )
+                model.buildings
+            )
+
+    else
+        model.gold
 
 main : Program () Model Msg
 main =
