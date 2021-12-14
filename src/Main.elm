@@ -26,59 +26,73 @@ import Element.Input as Input
 import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
+import Parser exposing (Parser)
 import Task
+
 
 type alias Model =
     { commandInput : String
     , history : List String
     , turn : Int
-    , position : Position
-    , currentPlayer : Player
+    , maxTurn : Int
+    , gold : Int
+    , worker : Worker
     }
+
 
 type Msg
     = CommandEntered String
     | CommandSubmitted
     | NoOp
 
-type BuildingType = GoldMine | House
-type alias Building = 
+
+type BuildingType
+    = GoldMine
+    | House
+
+
+type alias Building =
     { id : Int
     , buildingType : BuildingType
     , playerId : Int
+    , position : Position
     }
+
 
 type alias Position =
     { x : Int
     , y : Int
     }
 
-type alias Player = 
+
+type alias Worker =
     { id : Int
-    , gold : Int
-    , position : Position 
+    , position : Position
     }
 
+
 type Direction
-    = Left 
+    = Left
     | Right
     | Up
     | Down
 
-user1 : Player 
-user1 = 
+
+worker : Worker
+worker =
     { id = 0
-    , gold = 100
-    , position = { x = 0, y = 0}
+    , position = { x = 0, y = 0 }
     }
+
 
 init : Model
 init =
     { commandInput = ""
     , history = []
     , turn = 0
-    , position = { x = 0, y = 0 }
-    , currentPlayer = user1
+    , maxTurn = 100
+    , gold = 100
+    , worker = worker
     }
 
 
@@ -89,9 +103,11 @@ update msg model =
             { model | commandInput = command }
 
         CommandSubmitted ->
-            -- TODO: Command parsing and applying goes here!!!
-            { model | commandInput = "", history = model.history ++ [ model.commandInput ] 
-            ,  currentPlayer = move model.currentPlayer Right}
+            { model
+                | commandInput = ""
+                , history = model.history ++ [ model.commandInput ]
+                , worker = move model.worker Right
+            }
 
         NoOp ->
             model
@@ -104,12 +120,16 @@ grassTileUrl =
 
 houseTileUrl : String
 houseTileUrl =
-    "https://lh3.googleusercontent.com/proxy/2Wr6rgQzX3MNJLZDkemAFKmOKzz2Mep8aS_AJRhYl2K32luc6WkmURB04wLNTPUKY3JGGwDeqOW5nNNp_8R-d7cEQg"
+    "https://cdn.imgbin.com/8/7/18/imgbin-house-pixel-art-drawing-roof-house-9d4keKLkd2tHxxtyfjBNPwyqe.jpg"
+
+
+
+-- "https://lh3.googleusercontent.com/proxy/2Wr6rgQzX3MNJLZDkemAFKmOKzz2Mep8aS_AJRhYl2K32luc6WkmURB04wLNTPUKY3JGGwDeqOW5nNNp_8R-d7cEQg"
 
 
 goldMineTileUrl : String
 goldMineTileUrl =
-    "https://lh3.googleusercontent.com/proxy/fhK_jHUof4nMDWATraR0GMcwB9BUHJSmFkbqwiLeXtgo6oqQMdJF6qKGl6tHBetEe2I4RNHcbfxByRm7m2OBSaxOLQ"
+    "https://e7.pngegg.com/pngimages/634/456/png-clipart-gold-mine-gold-mining-coal-mining-mines-furniture-text.png"
 
 
 workerTileUrl : String
@@ -194,23 +214,38 @@ onEnter msg =
             )
         )
 
-move : Player -> Direction -> Player
-move player direction = 
-    case direction of 
-        Left -> 
+
+move : Worker -> Direction -> Worker
+move character direction =
+    case direction of
+        Left ->
             Debug.log "Left"
-           { player | position =  { x = player.position.x - 1, y = player.position.y} }
-        Right -> 
+                { character | position = { x = character.position.x - 1, y = character.position.y } }
+
+        Right ->
             Debug.log "Right"
-           { player | position = { x = player.position.x + 1, y = player.position.y } }
-        Up  -> 
+                { character | position = { x = character.position.x + 1, y = character.position.y } }
+
+        Up ->
             Debug.log "Up"
-           { player | position = { x = player.position.x, y = player.position.y + 1 } }
-        Down -> 
+                { character | position = { x = character.position.x, y = character.position.y + 1 } }
+
+        Down ->
             Debug.log "Down"
-           { player | position = { x = player.position.x, y = player.position.y - 1 } }
+                { character | position = { x = character.position.x, y = character.position.y - 1 } }
 
 
+build : Worker -> BuildingType -> Building
+build character buildingType =
+    case buildingType of
+        GoldMine ->
+            { id = 5, buildingType = buildingType, position = character.position, playerId = character.id }
+
+        House ->
+            { id = 6, buildingType = buildingType, position = character.position, playerId = character.id }
+
+
+main : Program () Model Msg
 main =
     Browser.element
         { init =
