@@ -12,16 +12,19 @@ this code, reach your teacher out before doing this.
 
 -}
 
+-- import Command exposing (Command(..))
+-- import Parser exposing (Parser)
+
 import Browser
 import Browser.Dom
 import Collage exposing (Collage)
 import Collage.Render
 import Collage.Text
-import Color
-import Element exposing (Element, centerX, centerY, column, el, fill, focusStyle, height, padding, paddingEach, px, rgb, rgba, row, spacing, text, width)
+import Command exposing (BuildingType(..), Direction(..))
+import Debug exposing (toString)
+import Element exposing (Element, centerX, centerY, column, el, fill, height, padding, px, row, text, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Font as Font
 import Element.Input as Input
 import Html.Attributes
 import Html.Events
@@ -32,6 +35,11 @@ import Task
 type alias Model =
     { commandInput : String
     , history : List String
+    , turn : Int
+    , maxTurn : Int
+    , gold : Int
+    , worker : Worker
+    , buildings : List Building
     }
 
 
@@ -41,10 +49,55 @@ type Msg
     | NoOp
 
 
+
+-- type BuildingType
+--     = GoldMine
+--     | House
+
+
+type alias Building =
+    { id : Int
+    , buildingType : BuildingType
+    , position : Position
+    }
+
+
+type alias Position =
+    { x : Int
+    , y : Int
+    }
+
+
+type alias Worker =
+    { id : Int
+    , position : Position
+    }
+
+
+
+-- type Direction
+--     = Left
+--     | Right
+--     | Up
+--     | Down
+
+
+worker : Worker
+worker =
+    { id = 0
+    , position = { x = -5, y = -4 }
+    }
+
+
 init : Model
 init =
     { commandInput = ""
     , history = []
+    , turn = 0
+    , maxTurn = 100
+    , gold = 100
+    , worker = worker
+    , buildings = []
     }
 
 
@@ -55,8 +108,7 @@ update msg model =
             { model | commandInput = command }
 
         CommandSubmitted ->
-            -- TODO: Command parsing and applying goes here!!!
-            { model | commandInput = "", history = model.history ++ [ model.commandInput ] }
+            handleCommand model
 
         NoOp ->
             model
@@ -69,12 +121,12 @@ grassTileUrl =
 
 houseTileUrl : String
 houseTileUrl =
-    "https://lh3.googleusercontent.com/proxy/2Wr6rgQzX3MNJLZDkemAFKmOKzz2Mep8aS_AJRhYl2K32luc6WkmURB04wLNTPUKY3JGGwDeqOW5nNNp_8R-d7cEQg"
+    "https://cdn.imgbin.com/8/7/18/imgbin-house-pixel-art-drawing-roof-house-9d4keKLkd2tHxxtyfjBNPwyqe.jpg"
 
 
 goldMineTileUrl : String
 goldMineTileUrl =
-    "https://lh3.googleusercontent.com/proxy/fhK_jHUof4nMDWATraR0GMcwB9BUHJSmFkbqwiLeXtgo6oqQMdJF6qKGl6tHBetEe2I4RNHcbfxByRm7m2OBSaxOLQ"
+    "https://e7.pngegg.com/pngimages/634/456/png-clipart-gold-mine-gold-mining-coal-mining-mines-furniture-text.png"
 
 
 workerTileUrl : String
@@ -118,29 +170,52 @@ viewMap model =
     -- Feel free to define some helper functions!
     -- Note that unfortunately, the Color.Color and Element.Color types doesn't match.
     Collage.group
-        [ -- Display a gold mine with its identifier
-          Collage.image ( cellSize, cellSize ) goldMineTileUrl
-            |> Collage.shift ( 2 * cellSize, 3 * cellSize )
-        , Collage.Text.fromString "3"
-            |> Collage.rendered
-            |> Collage.shift ( 2 * cellSize + cellSize / 3, 3 * cellSize + cellSize / 3 )
+        (List.concat
+            [ [ -- Display a worker with its identifier
+                Collage.image ( cellSize / 2, cellSize / 2 ) workerTileUrl
+                    |> Collage.shift ( toFloat model.worker.position.x * cellSize, toFloat model.worker.position.y * cellSize )
+              , Collage.Text.fromString (toString model.worker.id)
+                    |> Collage.rendered
+                    |> Collage.shift ( toFloat model.worker.position.x * cellSize + cellSize / 4, toFloat model.worker.position.y * cellSize + cellSize / 4 )
+                -- Display player current gold
+              , Collage.Text.fromString ("Your gold: " ++ toString model.gold)
+                    |> Collage.rendered
+                    |> Collage.shift ( 4.4 * cellSize, -3.9 * cellSize)
+                -- Display turn
+              , Collage.Text.fromString ("Turn " ++ toString model.turn)
+                    |> Collage.rendered
+                    |> Collage.shift ( 0, 3.9 * cellSize)
+              ]
 
-        -- Display a worker with its identifier
-        , Collage.image ( cellSize / 2, cellSize / 2 ) workerTileUrl
-            |> Collage.shift ( -2 * cellSize, -3 * cellSize )
-        , Collage.Text.fromString "1"
-            |> Collage.rendered
-            |> Collage.shift ( -2 * cellSize + cellSize / 4, -3 * cellSize + cellSize / 4 )
+            -- Display buildings
+            , viewBuildings model.buildings
+            ]
+        )
 
-        -- Display house with its identifier
-        , Collage.image ( cellSize, cellSize ) houseTileUrl
-        , Collage.Text.fromString "2"
-            |> Collage.rendered
-            |> Collage.shift ( cellSize / 3, cellSize / 3 )
 
-        -- You should have enough with the above examples, but if you need diving deeper in the `Collage` library
-        -- here is the documentation link: https://package.elm-lang.org/packages/timjs/elm-collage/latest/
-        ]
+viewBuildings : List Building -> List (Collage Msg)
+viewBuildings buildings =
+    List.concatMap (\building -> viewBuilding building building.buildingType) buildings
+
+
+viewBuilding : Building -> BuildingType -> List (Collage Msg)
+viewBuilding building buildingType =
+    case buildingType of
+        House ->
+            [ Collage.image ( cellSize, cellSize ) houseTileUrl
+                |> Collage.shift ( toFloat building.position.x * cellSize, toFloat building.position.y * cellSize )
+            , Collage.Text.fromString (toString building.id)
+                |> Collage.rendered
+                |> Collage.shift ( toFloat building.position.x * cellSize + cellSize / 3, toFloat building.position.y * cellSize + cellSize / 3 )
+            ]
+
+        GoldMine ->
+            [ Collage.image ( cellSize, cellSize ) goldMineTileUrl
+                |> Collage.shift ( toFloat building.position.x * cellSize, toFloat building.position.y * cellSize )
+            , Collage.Text.fromString (toString building.id)
+                |> Collage.rendered
+                |> Collage.shift ( toFloat building.position.x * cellSize + cellSize / 4, toFloat building.position.y * cellSize + cellSize / 4 )
+            ]
 
 
 onEnter : msg -> Element.Attribute msg
@@ -160,6 +235,103 @@ onEnter msg =
         )
 
 
+
+-- move : Worker -> Direction -> Worker
+-- move character direction =
+
+
+move : Worker -> String -> Worker
+move character direction =
+    case direction of
+        "Left" ->
+            { character | position = { x = character.position.x - 1, y = character.position.y } }
+
+        "Right" ->
+            { character | position = { x = character.position.x + 1, y = character.position.y } }
+
+        "Up" ->
+            { character | position = { x = character.position.x, y = character.position.y + 1 } }
+
+        "Down" ->
+            { character | position = { x = character.position.x, y = character.position.y - 1 } }
+
+        _ ->
+            character
+
+
+
+-- build : Worker -> BuildingType -> Building
+-- build character buildingType =
+
+
+build : Model -> String -> List Building
+build model buildingType =
+    case buildingType of
+        "GoldMine" ->
+            model.buildings ++ [ { id = model.turn, buildingType = GoldMine, position = model.worker.position } ]
+
+        "House" ->
+            model.buildings ++ [ { id = model.turn, buildingType = House, position = model.worker.position } ]
+
+        _ ->
+            model.buildings
+
+
+handleCommand : Model -> Model
+handleCommand model =
+    case String.split " " model.commandInput of
+        [ "Move", direction ] ->
+            { model | worker = move model.worker direction, commandInput = "", turn = model.turn + 1, gold = updateGold model }
+
+        [ "Build", buildingType ] ->
+            { model
+                | buildings =
+                    if hasEnoughGold model then
+                        build model buildingType
+
+                    else
+                        model.buildings
+                , commandInput = ""
+                , turn = model.turn + 1
+                , gold =
+                    if hasEnoughGold model then
+                        model.gold - 30
+
+                    else
+                        updateGold model
+            }
+        _ ->
+            model
+
+
+hasEnoughGold : Model -> Bool
+hasEnoughGold model =
+    if model.gold >= 30 then
+        True
+
+    else
+        False
+
+
+updateGold : Model -> Int
+updateGold model =
+    if List.length model.buildings > 0 then
+        model.gold + List.sum
+            (List.map
+                (\x ->
+                    if x.buildingType == GoldMine then
+                        5
+
+                    else
+                        0
+                )
+                model.buildings
+            )
+
+    else
+        model.gold
+
+main : Program () Model Msg
 main =
     Browser.element
         { init =
